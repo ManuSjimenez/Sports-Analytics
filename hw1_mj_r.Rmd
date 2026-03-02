@@ -1,0 +1,564 @@
+---
+title: "SPM HW1"
+author: "Manuela Jimenez"
+date: "2026-01-15"
+output: pdf_document
+---
+
+```{r}
+data = read.csv("MLB_Draft.csv")
+# View(data)
+head(data)
+
+# and then we have our numerical variables and categorical:
+season = data$season
+pickNumber = data$pickNumber
+teamid = data$teamId
+playerid = data$playerId
+bonus = data$signingBonus
+# maybe even get the log of the bonus?
+#bonus = log(bonus) # the log seems to give the bonus a normal distribution
+
+# categorical:
+pickRound = data$pickRound
+teamName = data$teamName
+playerPosition = data$playerPositionCode
+playerName = data$playerName
+schoolName = data$schoolName
+schoolType = data$schoolTypeCode
+schoolLocation = data$schoolLocationStateCode
+```
+
+We want to explore the data:
+
+```{r}
+library(dplyr)
+hist(bonus, freq = FALSE)
+mean(data$signingBonus)
+```
+
+As we can see from the histogram above, majority of the salaries fall in the average 12 which is blablabla, and additional to this, the average signing bonus is: \$587,321.2
+
+Highest signing and lowest:
+
+```{r}
+# we will check the player with lowest signing bonus from 2021 to 2024
+lowest_sig <- min(bonus)
+row_low <- data[data$signingBonus == lowest_sig,]
+cat("\nLowest signing bonus: \n")
+cat("Player(s):", paste(row_low$playerName, collapse = ", "), "\n")
+cat("Year(s):", paste(row_low$season, collapse = ", "), "\n")
+cat("Team:", paste(row_low$teamName, collapse = ", "), "\n")
+cat("Bonus: $", paste(row_low$signingBonus, collapse = ", "), "\n")
+
+# we will then check player with the highest sining bonus from 2021-2024
+highest_sig <- max(bonus)
+row_high <- data[data$signingBonus == highest_sig,]
+cat("\nHighest signing bonus: \n")
+cat("Player(s):", paste(row_high$playerName, collapse = ", "), "\n")
+cat("Year(s):", paste(row_high$season, collapse = ", "), "\n")
+cat("Team:", paste(row_high$teamName, collapse = ", "), "\n")
+cat("Bonus: $", paste(row_high$signingBonus, collapse = ", "), "\n")
+```
+
+Teams with the lowest and highest signing in the years 2021-2024 and how much money they spend in total and in average per player.
+
+```{r}
+#length(unique(teamid)) # this is 30 , just like 
+count <- table(data$teamName, useNA = "ifany") # make sure we are not omitting missing values
+# print(count)
+# we will check the team with lowest number of signingsfrom 2021 to 2024
+lowest <- min(count)
+team_low <- names(count[count == lowest])
+cat("Lowest signings:", team_low, lowest, "\n")
+# we will then check team with the highest sinings from 2021-2024
+highest <- max(count)
+team_high <- names(count[count == highest])
+cat("Highest signings:", team_high, highest, "\n")
+
+
+# now we will see hiw much money they spent in total and the average per player
+data_low <- data[data$teamName == team_low, ]
+data_high <- data[data$teamName == team_high, ]
+
+# the team with the lowest signings
+sal_low <- sum(data_low$signingBonus)
+cat("In total, the team with the lowest signings spent: ", sal_low, "\n")
+
+# the team with the highest signing
+sal_high <- sum(data_high$signingBonus)
+
+
+# in average, per player, they spent:
+pp_low <- sal_low/lowest
+pp_high <- sal_high/highest
+cat("In average, per player, ", team_low, "spent", pp_low, "\n")
+cat("In total, the team with the highest signings spent: ", sal_high, "\n")
+cat("In average, per player, ", team_high, "spent", pp_high, "\n")
+
+```
+
+We will see what position has in average the highest signing bonus, and what the range is (min to max signing bonus) We will then check the different signing bonus between positions. And additional to this, we will check how many of each position get drafted a year, and how many of each position are necessary on teams(needs to look this up)
+
+```{r}
+positions <- unique(data$playerPositionCode) # there are 11 different positions in this data set, and those positions include:
+table(data$playerPositionCode)
+# IF when position is unclear or flexible
+# OF left fielder, center fielder, right fielder all grouped together
+# SHP switch hitting position player, hits both left and right handed
+# SS shortstop (premium defensive position)
+# TWP plays both pitcher and position
+# why are pitchers, the main drafted and what rounds are they normally drafted in?
+
+for (i in positions) {
+  pos <- data[data$playerPositionCode == i, ]
+  
+  tot_bonus <- sum(pos$signingBonus)
+  avg_bonus <- mean(pos$signingBonus)
+  min_bonus <- min(pos$signingBonus)
+  max_bonus <- max(pos$signingBonus)
+  
+  cat("\nPosition:", i, "\n")
+  cat("Total signing bonus: $", tot_bonus, "\n")
+  cat("Average signing bonus: $", avg_bonus, "\n")
+  cat("Range signing bonus: $", min_bonus, "to $", max_bonus, "\n")
+}
+
+# because we want to plot, we need a summary table:
+position_summary <- data %>% group_by(playerPositionCode) %>% summarise( avg_bonus = mean(signingBonus), total_bonus = sum(signingBonus), min_bonus = min(signingBonus), max_bonus = max(signingBonus), count = n() )
+
+library(ggplot2)
+ggplot(position_summary, aes(x = playerPositionCode, y = avg_bonus)) + geom_col(fill = "steelblue") + labs( title = "Average Signing Bonus by Position", x = "Position", y = "Average Bonus ($)" )
+
+# And then, if we were to get rid of the extreme outlier:
+position_summary_no_shp <- position_summary %>%
+  filter(playerPositionCode != "SHP")
+
+ggplot(position_summary_no_shp, aes(x = playerPositionCode, y = avg_bonus)) +
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "Average Signing Bonus by Position",
+    x = "Position",
+    y = "Average Bonus ($)"
+  )
+
+
+```
+
+APPARENTLY, THERE IS ONLY 1 SHP, so do we omit? Yes, this is our outlier
+
+From the output above we found that Pitchers make (number) most of the picks in the draft, nonetheless and while they have the highest signing bonus range from all other position, in average, they are not the highest bonus position. TWP, SS and SHP (which we omit in the second graph) had the highest signing bonuses in average but they are especial positions and as we can see from the table, not very common. Out fielders and second base had higher than pitchers (LHP and RHP) signing bonuses. Matter of fact, the only position that had a smaller average signing bonus than the pitchers (LHP and RHP) average was IF (infielders).
+
+Recommendation to college coaches, stay on top of your recruiting of pitchers specially in the highest of the level because you will be losing a good player.
+
+as your ranking increases, how many more dollars they make?
+
+```{r}
+
+```
+
+What highschool and college have the highest drafts?
+
+```{r}
+# we will then look for the highschool with the highest and the 4yr college with the highest, and the junior college, and those that it is not appliable
+
+table(data$schoolTypeCode)
+tp_school <- unique(data$schoolTypeCode)
+
+
+for (i in tp_school) {
+  if(i == "N/A") next
+  
+  school <- data[data$schoolTypeCode == i, ]
+  
+  count <- table(school$schoolName, useNA = "ifany")
+  high <- max(count)
+  school_high <- names(count[count == high])
+
+  cat("\nType of School:", i, "\n")
+  cat("Total players drafted (and signed):", high, "\n")
+  cat("School(s):", paste(school_high, collapse = ", "), "\n")
+}
+
+
+```
+
+Recommendation to the person in charge of recruiting, keep these schools as your first options, bcause of their history of good players that sign.
+
+We want to see if the signing bonus is directly related to the ranking in the draft. (most probable yes) but is it a linear relationship? with signing bonus being our response variable
+
+```{r}
+# We are assuming that there is a linear relatioship between pick in the draft and signing bonus,
+
+# a correlation test
+#cor.test(data$pickNumber, data$signingBonus)
+
+# and then fit a simple linear regression and check residuals
+model <- lm(data$signingBonus ~ data$pickNumber)
+summary(model)
+# plot(model)
+
+# we will do a scatter plot,
+# plot(data$pickNumber, data$signingBonus, xlab = "Draft Pick Number", ylab = "Signing Bonus ($)", main = "Signing Bonus vs Draft Pick")
+# abline(model, col = "red", lwd = 2)
+
+# now, because the signing bonuses are heavily right-skewed, we will transform the response variable
+log_bonus <- log(data$signingBonus)
+model_log <- lm(log_bonus ~ data$pickNumber)
+summary(model_log)
+# plot(model_log)
+# plot(data$pickNumber, log_bonus, xlab = "Draft Pick Number", ylab = "log(Signing Bonus) ($)", main = "log(Signing Bonus) vs Draft Pick")
+# abline(model_log, col = "red", lwd = 2)
+
+# and because our R^2 is still very low, we then check a nonlinear fit
+model_poly <- lm(signingBonus ~ poly(pickNumber, 2), data = data)
+summary(model_poly) # R^2 = 0.42
+
+library(mgcv)
+# what if we do a generative additive model?
+gam_model <- gam(signingBonus ~ pickNumber, data = data)
+summary(gam_model)
+plot(gam_model)
+```
+
+From our first graph is evident that the first picks get the most money and it dramatically decreases.The relationship between draft pick number and signing bonus is strongly negative, in other words, as we get further through the draft, the smaller the signing bonus will be. A log transformation, improved linearity and model fit (Our R\^2 value), which might suggest that bonuses decline exponentially and not linearly in the draft.
+
+what team drafts the most players after round 10? throughout each season.
+
+```{r}
+# in our data, round number is a character
+data$pickRound_num <- as.numeric(as.character(data$pickRound)) # and we can do this because we only care about rounds after 10, so that means that those rounds that are letters like CBA, CBB and the complementary picks and Prospect Promotion Incentive are before 10 anyway.
+
+after10 <- data[data$pickRound_num > 10, ]
+years <- sort(unique(after10$season))
+
+for (i in years) {
+  
+  year <- after10[after10$season == i, ]
+  
+  team_counts <- table(year$teamName)
+  max_count <- max(team_counts)
+  top_teams <- names(team_counts[team_counts == max_count])
+  
+  cat("\nSeason:", i, "\n")
+  cat("Most players drafted after Round 10:", max_count, "\n")
+  cat("Team(s):", paste(top_teams, collapse = ", "), "\n")
+}
+
+```
+
+NEED TO EDIT THIS Teams vary widely in how aggressively they draft players after Round 10. These late‑round selections often reflect organizational strategy: some teams prioritize depth and development projects, while others focus their bonus pool on early‑round talent. Identifying which teams consistently draft heavily after Round 10 can reveal which organizations rely more on volume scouting and long‑term player development.
+
+What positions are normally drafted in the CBA or CBB rounds and what is the average signing bonus. and then compare it to first or second round picks in the same position.
+
+```{r}
+# # Filter only CBA and CBB rounds
+# cba_cbb <- data[data$pickRound %in% c("CB-A", "CB-B"), ]
+# 
+# # Get the unique positions in these rounds
+# pos_cba <- unique(cba_cbb$playerPositionCode)
+# 
+# # Loop through each position and compute totals
+# for (i in pos_cba) {
+#   
+#   pos <- cba_cbb[cba_cbb$playerPositionCode == i, ]
+#   
+#   tot_bonus <- sum(pos$signingBonus)
+#   avg_bonus <- mean(pos$signingBonus)
+#   min_bonus <- min(pos$signingBonus)
+#   max_bonus <- max(pos$signingBonus)
+#   count_pos <- nrow(pos)
+#   
+#   cat("\nPosition:", i, "\n")
+#   cat("Players drafted in CBA/CBB:", count_pos, "\n")
+#   cat("Total signing bonus: $", tot_bonus, "\n")
+#   cat("Average signing bonus: $", avg_bonus, "\n")
+#   cat("Range signing bonus: $", min_bonus, "to $", max_bonus, "\n")
+# }
+# 
+# # and then compare it to first or second round picks in the same position.
+# r1 <- data[data$pickRound == "1", ]
+# r2 <- data[data$pickRound == "2", ]
+# 
+# for (i in pos_cba) {
+#   
+#   # CBA/CBB subset
+#   pos_cba_sub <- cba_cbb[cba_cbb$playerPositionCode == i, ]
+#   
+#   # Round 1 subset
+#   pos_r1 <- r1[r1$playerPositionCode == i, ]
+#   
+#   # Round 2 subset
+#   pos_r2 <- r2[r2$playerPositionCode == i, ]
+#   
+#   # CBA/CBB stats
+#   tot_cba <- sum(pos_cba_sub$signingBonus)
+#   avg_cba <- mean(pos_cba_sub$signingBonus)
+#   min_cba <- min(pos_cba_sub$signingBonus)
+#   max_cba <- max(pos_cba_sub$signingBonus)
+#   count_cba <- nrow(pos_cba_sub)
+#   
+#   # Round 1 stats
+#   tot_r1 <- sum(pos_r1$signingBonus)
+#   avg_r1 <- mean(pos_r1$signingBonus)
+#   min_r1 <- min(pos_r1$signingBonus)
+#   max_r1 <- max(pos_r1$signingBonus)
+#   count_r1 <- nrow(pos_r1)
+#   
+#   # Round 2 stats
+#   tot_r2 <- sum(pos_r2$signingBonus)
+#   avg_r2 <- mean(pos_r2$signingBonus)
+#   min_r2 <- min(pos_r2$signingBonus)
+#   max_r2 <- max(pos_r2$signingBonus)
+#   count_r2 <- nrow(pos_r2)
+#   
+#   # Print results
+#   cat("\nPosition:", i, "\n")
+#   
+#   cat("\nCBA/CBB Rounds:\n")
+#   cat("Players:", count_cba, "\n")
+#   cat("Average Bonus: $", avg_cba, "\n")
+#   cat("Range: $", min_cba, "to $", max_cba, "\n")
+#   
+#   cat("\nRound 1:\n")
+#   cat("Players:", count_r1, "\n")
+#   cat("Average Bonus: $", avg_r1, "\n")
+#   cat("Range: $", min_r1, "to $", max_r1, "\n")
+#   
+#   cat("\nRound 2:\n")
+#   cat("Players:", count_r2, "\n")
+#   cat("Average Bonus: $", avg_r2, "\n")
+#   cat("Range: $", min_r2, "to $", max_r2, "\n")
+# }
+
+
+# Separate CB-A and CB-B rounds
+cba <- data[data$pickRound == "CB-A", ]
+cbb <- data[data$pickRound == "CB-B", ]
+
+# Positions that appear in either CB-A or CB-B
+pos_all <- unique(c(cba$playerPositionCode, cbb$playerPositionCode))
+
+# Round 1 and Round 2 subsets
+r1 <- data[data$pickRound == "1", ]
+r2 <- data[data$pickRound == "2", ]
+
+# Loop through each position and compare CB-A, CB-B, Round 1, Round 2
+for (i in pos_all) {
+  
+  # CB-A subset
+  pos_cba <- cba[cba$playerPositionCode == i, ]
+  
+  # CB-B subset
+  pos_cbb <- cbb[cbb$playerPositionCode == i, ]
+  
+  # Round 1 subset
+  pos_r1 <- r1[r1$playerPositionCode == i, ]
+  
+  # Round 2 subset
+  pos_r2 <- r2[r2$playerPositionCode == i, ]
+  
+  # CB-A stats
+  tot_cba <- sum(pos_cba$signingBonus)
+  avg_cba <- mean(pos_cba$signingBonus)
+  min_cba <- min(pos_cba$signingBonus)
+  max_cba <- max(pos_cba$signingBonus)
+  count_cba <- nrow(pos_cba)
+  
+  # CB-B stats
+  tot_cbb <- sum(pos_cbb$signingBonus)
+  avg_cbb <- mean(pos_cbb$signingBonus)
+  min_cbb <- min(pos_cbb$signingBonus)
+  max_cbb <- max(pos_cbb$signingBonus)
+  count_cbb <- nrow(pos_cbb)
+  
+  # Round 1 stats
+  tot_r1 <- sum(pos_r1$signingBonus)
+  avg_r1 <- mean(pos_r1$signingBonus)
+  min_r1 <- min(pos_r1$signingBonus)
+  max_r1 <- max(pos_r1$signingBonus)
+  count_r1 <- nrow(pos_r1)
+  
+  # Round 2 stats
+  tot_r2 <- sum(pos_r2$signingBonus)
+  avg_r2 <- mean(pos_r2$signingBonus)
+  min_r2 <- min(pos_r2$signingBonus)
+  max_r2 <- max(pos_r2$signingBonus)
+  count_r2 <- nrow(pos_r2)
+  
+  # Print results
+  cat("\nPosition:", i, "\n")
+  
+  cat("\nCB-A Round:\n")
+  cat("Players:", count_cba, "\n")
+  cat("Average Bonus: $", avg_cba, "\n")
+  cat("Range: $", min_cba, "to $", max_cba, "\n")
+  
+  cat("\nCB-B Round:\n")
+  cat("Players:", count_cbb, "\n")
+  cat("Average Bonus: $", avg_cbb, "\n")
+  cat("Range: $", min_cbb, "to $", max_cbb, "\n")
+  
+  cat("\nRound 1:\n")
+  cat("Players:", count_r1, "\n")
+  cat("Average Bonus: $", avg_r1, "\n")
+  cat("Range: $", min_r1, "to $", max_r1, "\n")
+  
+  cat("\nRound 2:\n")
+  cat("Players:", count_r2, "\n")
+  cat("Average Bonus: $", avg_r2, "\n")
+  cat("Range: $", min_r2, "to $", max_r2, "\n")
+}
+
+```
+
+what state has the most HS players in the draft?
+
+```{r}
+# Filter only high school players
+hs <- data[data$schoolTypeCode == "HS", ]
+
+# Count how many HS players come from each state
+state_counts <- table(hs$schoolLocationStateCode)
+
+# Find the maximum count
+max_count <- max(state_counts)
+
+# Find the state(s) with that maximum
+top_states <- names(state_counts[state_counts == max_count])
+
+# Print results
+cat("State(s) with the most HS players drafted:\n")
+cat(paste(top_states, collapse = ", "), "\n")
+cat("Number of HS players drafted:", max_count, "\n")
+
+```
+
+now which rounds draft the most HS players that also sign per season:
+
+```{r}
+# Filter only high school players
+hs <- data[data$schoolTypeCode == "HS", ]
+
+# Get all seasons
+years <- sort(unique(hs$season))
+
+for (yr in years) {
+  
+  # Subset HS players for that season
+  hs_year <- hs[hs$season == yr, ]
+  
+  # Count HS players by round
+  round_counts <- table(hs_year$pickRound)
+  
+  # Find the maximum count
+  max_count <- max(round_counts)
+  
+  # Find the round(s) with that maximum
+  top_rounds <- names(round_counts[round_counts == max_count])
+  
+  # Print results
+  cat("\n==============================\n")
+  cat("Season:", yr, "\n")
+  cat("Round(s) with the most HS players:", paste(top_rounds, collapse = ", "), "\n")
+  cat("Number of HS players drafted in that round:", max_count, "\n")
+}
+
+
+```
+
+It seems that the most highschool players get drafted in the first rounds.
+
+For specific schools, like for example Florida State, compare the signing bonus throught the years and in between positions.
+
+```{r}
+# Subset only players from that school
+sch <- data[data$schoolName == "Florida State", ]
+
+# Get unique years and positions
+years <- sort(unique(sch$season))
+positions <- unique(sch$playerPositionCode)
+
+cat("\n==============================\n")
+cat("School: Florida State \n")
+
+# ---- PART 1: Signing bonus by YEAR ----
+cat("\nSigning Bonus by Year:\n")
+
+for (yr in years) {
+  
+  sub_year <- sch[sch$season == yr, ]
+  
+  tot_bonus <- sum(sub_year$signingBonus)
+  avg_bonus <- mean(sub_year$signingBonus)
+  min_bonus <- min(sub_year$signingBonus)
+  max_bonus <- max(sub_year$signingBonus)
+  count <- nrow(sub_year)
+  
+  cat("\nYear:", yr, "\n")
+  cat("Players:", count, "\n")
+  cat("Total Bonus: $", tot_bonus, "\n")
+  cat("Average Bonus: $", avg_bonus, "\n")
+  cat("Range: $", min_bonus, "to $", max_bonus, "\n")
+}
+
+# ---- PART 2: Signing bonus by POSITION ----
+cat("\n==============================\n")
+cat("Signing Bonus by Position:\n")
+
+for (pos in positions) {
+  
+  sub_pos <- sch[sch$playerPositionCode == pos, ]
+  
+  tot_bonus <- sum(sub_pos$signingBonus)
+  avg_bonus <- mean(sub_pos$signingBonus)
+  min_bonus <- min(sub_pos$signingBonus)
+  max_bonus <- max(sub_pos$signingBonus)
+  count <- nrow(sub_pos)
+  
+  cat("\nPosition:", pos, "\n")
+  cat("Players:", count, "\n")
+  cat("Total Bonus: $", tot_bonus, "\n")
+  cat("Average Bonus: $", avg_bonus, "\n")
+  cat("Range: $", min_bonus, "to $", max_bonus, "\n")
+}
+
+```
+
+What positions sign out of HS
+
+```{r}
+# Filter only signed HS players
+hs <- data[data$schoolTypeCode == "HS", ]
+
+# Count HS signers by position
+hs_pos_counts <- table(hs$playerPositionCode)
+
+# Count ALL signers by position (HS + college + JUCO)
+all_pos_counts <- table(data$playerPositionCode)
+
+# Get all positions that appear in HS or overall
+positions <- sort(unique(c(names(hs_pos_counts), names(all_pos_counts))))
+
+# Loop through positions and print comparison
+for (pos in positions) {
+  
+  # HS count (0 if not present)
+  hs_count <- ifelse(pos %in% names(hs_pos_counts),
+                     hs_pos_counts[pos],
+                     0)
+  
+  # Total count (always present)
+  total_count <- all_pos_counts[pos]
+  
+  # Print results
+  cat("\n==============================\n")
+  cat("Position:", pos, "\n")
+  cat("HS players signed:", hs_count, "\n")
+  cat("Total players drafted & signed:", total_count, "\n")
+  cat("HS share of signers:", round((hs_count / total_count) * 100, 1), "%\n")
+}
+
+```
+
+Highschool players do not make a big number of the signings.maybe for ss
